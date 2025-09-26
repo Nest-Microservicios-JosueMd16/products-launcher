@@ -18,7 +18,7 @@ spec:
         app: orders-ms
     spec:
       containers:
-      - image: northamerica-northeast1-docker.pkg.dev/tienda-microservices/image-registry/orders-ms
+      - image: northamerica-south1-docker.pkg.dev/tienda-microservicios-472622/image-registry/orders-ms
         name: orders-ms
         env:
         - name: PORT
