@@ -1,0 +1,326 @@
+# ===========================================
+# NATS SERVER
+# ===========================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nats-server
+  labels:
+    app: nats-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nats-server
+  template:
+    metadata:
+      labels:
+        app: nats-server
+    spec:
+      containers:
+      - name: nats-server
+        image: nats:latest
+        ports:
+        - containerPort: 4222
+        - containerPort: 6222
+        - containerPort: 8222
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nats-server
+spec:
+  selector:
+    app: nats-server
+  ports:
+    - name: client
+      port: 4222
+      targetPort: 4222
+    - name: cluster
+      port: 6222
+      targetPort: 6222
+    - name: monitor
+      port: 8222
+      targetPort: 8222
+  type: ClusterIP
+
+---
+# ===========================================
+# CLIENT GATEWAY
+# ===========================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client-gateway
+  labels:
+    app: client-gateway
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: client-gateway
+  template:
+    metadata:
+      labels:
+        app: client-gateway
+    spec:
+      containers:
+      - name: client-gateway
+        image: northamerica-south1-docker.pkg.dev/tienda-microservicios-472622/image-registry/client-gateway
+        ports:
+        - containerPort: 3000
+        env:
+        - name: PORT
+          value: "3000"
+        - name: NATS_SERVERS
+          value: "nats://nats-server:4222"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: client-gateway-service
+spec:
+  selector:
+    app: client-gateway
+  ports:
+    - port: 80
+      targetPort: 3000
+  type: LoadBalancer
+
+---
+# ===========================================
+# AUTH MICROSERVICE
+# ===========================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-ms
+  labels:
+    app: auth-ms
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: auth-ms
+  template:
+    metadata:
+      labels:
+        app: auth-ms
+    spec:
+      containers:
+      - name: auth-ms
+        image: northamerica-south1-docker.pkg.dev/tienda-microservicios-472622/image-registry/auth-ms
+        ports:
+        - containerPort: 3000
+        env:
+        - name: PORT
+          value: "3000"
+        - name: NATS_SERVERS
+          value: "nats://nats-server:4222"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: auth-secrets
+              key: database_url
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: auth-secrets
+              key: jwt_secret
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-ms-service
+spec:
+  selector:
+    app: auth-ms
+  ports:
+    - port: 3000
+      targetPort: 3000
+  type: ClusterIP
+
+---
+# ===========================================
+# PRODUCTS MICROSERVICE
+# ===========================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: products-ms
+  labels:
+    app: products-ms
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: products-ms
+  template:
+    metadata:
+      labels:
+        app: products-ms
+    spec:
+      containers:
+      - name: products-ms
+        image: northamerica-south1-docker.pkg.dev/tienda-microservicios-472622/image-registry/products-ms
+        ports:
+        - containerPort: 3000
+        env:
+        - name: PORT
+          value: "3000"
+        - name: NATS_SERVERS
+          value: "nats://nats-server:4222"
+        - name: DATABASE_URL
+          value: "file:./dev.db"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: products-ms-service
+spec:
+  selector:
+    app: products-ms
+  ports:
+    - port: 3000
+      targetPort: 3000
+  type: ClusterIP
+
+---
+# ===========================================
+# ORDERS MICROSERVICE
+# ===========================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders-ms
+  labels:
+    app: orders-ms
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: orders-ms
+  template:
+    metadata:
+      labels:
+        app: orders-ms
+    spec:
+      containers:
+      - name: orders-ms
+        image: northamerica-south1-docker.pkg.dev/tienda-microservicios-472622/image-registry/orders-ms
+        ports:
+        - containerPort: 3000
+        env:
+        - name: PORT
+          value: "3000"
+        - name: NATS_SERVERS
+          value: "nats://nats-server:4222"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: orders-secrets  
+              key: database_url
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orders-ms-service
+spec:
+  selector:
+    app: orders-ms
+  ports:
+    - port: 3000
+      targetPort: 3000
+  type: ClusterIP
+
+---
+# ===========================================
+# PAYMENTS MICROSERVICE
+# ===========================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payments-ms
+  labels:
+    app: payments-ms
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: payments-ms
+  template:
+    metadata:
+      labels:
+        app: payments-ms
+    spec:
+      containers:
+      - name: payments-ms
+        image: northamerica-south1-docker.pkg.dev/tienda-microservicios-472622/image-registry/payments-ms
+        ports:
+        - containerPort: 3000
+        env:
+        - name: PORT
+          value: "3000"
+        - name: NATS_SERVERS
+          value: "nats://nats-server:4222"
+        - name: STRIPE_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: payments-secrets
+              key: stripe_secret
+        - name: STRIPE_SUCCESS_URL
+          value: "https://localhost:3003/payments/success"
+        - name: STRIPE_CANCEL_URL
+          value: "https://localhost:3003/payments/cancelled"
+        - name: STRIPE_ENDPOINT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: payments-secrets
+              key: stripe_endpoint_secret
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payments-ms-service
+spec:
+  selector:
+    app: payments-ms
+  ports:
+    - port: 3000
+      targetPort: 3000
+  type: ClusterIP
